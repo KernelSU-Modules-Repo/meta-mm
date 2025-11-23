@@ -52,3 +52,7 @@ You can switch to the Rust version with:
 ```bash
 git checkout rust
 ```
+
+or:
+
+https://github.com/Tools-cx-app/meta-magic_mount
