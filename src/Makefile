@@ -1,5 +1,5 @@
 PROJECT = magic_mount
-VERSION  ?= 0.1.4
+VERSION  ?= v0.1.5
 
 # use zig cc
 ZIG      ?= zig
