@@ -30,16 +30,16 @@
     --nord1: #e5e9f0;
     --nord2: #d8dee9;
     --nord3: #c0c5ce;
-    
+
     --nord4: #4c566a;
     --nord5: #434c5e;
     --nord6: #2e3440;
-    
+
     --nord7: #8fbcbb;
     --nord8: #5e81ac;
     --nord9: #81a1c1;
     --nord10: #4c566a;
-    
+
     --nord11: #bf616a;
     --nord12: #d08770;
     --nord13: #ebcb8b;
@@ -59,13 +59,16 @@ body {
   margin: 0;
   color: var(--nord6);
   font-family:
-    -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", Arial, sans-serif;
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", Inter, "Segoe UI", Arial,
+    sans-serif;
 }
 
 .app-root {
   display: flex;
   flex-direction: column;
-  height: calc(100vh - var(--window-inset-top, 0px) - var(--window-inset-bottom, 0px));
+  height: calc(
+    100vh - var(--window-inset-top, 0px) - var(--window-inset-bottom, 0px)
+  );
 }
 
 .app-main {
@@ -383,12 +386,11 @@ button:disabled {
   display: flex;
   align-items: center;
   justify-content: space-between;
-
 }
 .module-name {
   font-size: 15px;
   overflow: scroll;
-  flex:1;
+  flex: 1;
   margin-right: 20px;
 }
 
@@ -409,8 +411,10 @@ button:disabled {
 .slider {
   position: absolute;
   cursor: pointer;
-  top: 0; left: 0;
-  right: 0; bottom: 0;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
   background-color: #666;
   transition: 0.3s;
   border-radius: 24px;
@@ -466,7 +470,7 @@ input:checked + .slider:before {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  border: 3px solid rgba(255,255,255,0.25);
+  border: 3px solid rgba(255, 255, 255, 0.25);
   border-top-color: var(--nord8);
   animation: tab-spin 0.6s linear infinite;
 }

@@ -1,23 +1,23 @@
-const delay = (ms = 500) => new Promise(resolve => setTimeout(resolve, ms));
+const delay = (ms = 500) => new Promise((resolve) => setTimeout(resolve, ms));
 
 export const MockAPI = {
   async loadConfig(defaultConfig) {
-    console.log('[Dev] Load Mock config...');
+    console.log("[Dev] Load Mock config...");
     await delay();
-    
+
     return {
       ...defaultConfig,
-      moduledir: '/data/adb/modules',
-      partitions: ['mi_ext', 'my_stock'],
+      moduledir: "/data/adb/modules",
+      partitions: ["mi_ext", "my_stock"],
       verbose: true,
-      umount: false
+      umount: false,
     };
   },
 
   async saveConfig(config) {
-    console.log('[Dev] Save Mock config:', config);
+    console.log("[Dev] Save Mock config:", config);
     await delay(800);
-    
+
     if (Math.random() > 0.9) {
       throw new Error("Save error：IO error");
     }
@@ -58,11 +58,11 @@ Just some history data.`;
     await delay();
 
     return [
-      { name: 'mod1', disabledByFlag: false, skipMount: false },
-      { name: 'mod2', disabledByFlag: false, skipMount: true },
-      { name: 'mod3', disabledByFlag: true, skipMount: false },
-      { name: 'mod4', disabledByFlag: false, skipMount: false },
-      { name: 'mod5', disabledByFlag: false, skipMount: false }
+      { name: "mod1", disabledByFlag: false, skipMount: false },
+      { name: "mod2", disabledByFlag: false, skipMount: true },
+      { name: "mod3", disabledByFlag: true, skipMount: false },
+      { name: "mod4", disabledByFlag: false, skipMount: false },
+      { name: "mod5", disabledByFlag: false, skipMount: false },
     ];
   },
 
@@ -70,5 +70,5 @@ Just some history data.`;
     console.log(`[Dev] Switch module ${modName} skip_mount=${shouldSkip}`);
     await delay(300);
     return true;
-  }
+  },
 };

@@ -1,18 +1,13 @@
 #ifndef MODULE_TREE_H
 #define MODULE_TREE_H
 
+#include "magic_mount.h"
 #include <stdbool.h>
 #include <stddef.h>
 #include <sys/stat.h>
-#include "magic_mount.h"
 
 /* Node Type */
-typedef enum {
-    NFT_REGULAR,
-    NFT_DIRECTORY,
-    NFT_SYMLINK,
-    NFT_WHITEOUT
-} NodeFileType;
+typedef enum { NFT_REGULAR, NFT_DIRECTORY, NFT_SYMLINK, NFT_WHITEOUT } NodeFileType;
 
 /* Node */
 typedef struct Node {
@@ -29,8 +24,8 @@ typedef struct Node {
 
 /* Node utils func */
 NodeFileType node_type_from_stat(const struct stat *st);
-Node       * node_child_find(Node *parent, const char *name);
-void         node_free(Node *n);
+Node *node_child_find(Node *parent, const char *name);
+void node_free(Node *n);
 
 /* Collect the root node from the module directory：
  * ctx->module_dir...，Status writing ctx->stats

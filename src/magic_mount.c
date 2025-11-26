@@ -1,36 +1,35 @@
 #include "magic_mount.h"
-#include "utils.h"
-#include "module_tree.h"
 #include "ksu.h"
+#include "module_tree.h"
+#include "utils.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/mount.h>
 #include <dirent.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mount.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
-void magic_mount_init(MagicMount *ctx)
-{
-    if (!ctx) return;
+void magic_mount_init(MagicMount *ctx) {
+    if (!ctx)
+        return;
     memset(ctx, 0, sizeof(*ctx));
-    ctx->module_dir   = DEFAULT_MODULE_DIR;
+    ctx->module_dir = DEFAULT_MODULE_DIR;
     ctx->mount_source = DEFAULT_MOUNT_SOURCE;
     ctx->enable_unmountable = true;
 }
 
-void magic_mount_cleanup(MagicMount *ctx)
-{
-    if (!ctx) return;
+void magic_mount_cleanup(MagicMount *ctx) {
+    if (!ctx)
+        return;
     module_tree_cleanup(ctx);
 }
 
-static int mm_clone_symlink(const char *src, const char *dst)
-{
+static int mm_clone_symlink(const char *src, const char *dst) {
     char target[PATH_MAX];
 
     ssize_t len = readlink(src, target, sizeof(target) - 1);
@@ -52,16 +51,12 @@ static int mm_clone_symlink(const char *src, const char *dst)
     return 0;
 }
 
-static int mm_mirror_entry(MagicMount *ctx,
-                  const char *path, const char *work, const char *name);
+static int mm_mirror_entry(MagicMount *ctx, const char *path, const char *work, const char *name);
 
-static int mm_apply_node_recursive(MagicMount *ctx,
-                    const char *base, const char *wbase,
-                    Node *node, bool has_tmpfs);
+static int mm_apply_node_recursive(MagicMount *ctx, const char *base, const char *wbase, Node *node,
+                                   bool has_tmpfs);
 
-static int mm_mirror_entry(MagicMount *ctx,
-                  const char *path, const char *work, const char *name)
-{
+static int mm_mirror_entry(MagicMount *ctx, const char *path, const char *work, const char *name) {
     char src[PATH_MAX];
     char dst[PATH_MAX];
 
@@ -106,8 +101,7 @@ static int mm_mirror_entry(MagicMount *ctx,
 
         struct dirent *de;
         while ((de = readdir(d))) {
-            if (!strcmp(de->d_name, ".") ||
-                !strcmp(de->d_name, "..")) {
+            if (!strcmp(de->d_name, ".") || !strcmp(de->d_name, "..")) {
                 continue;
             }
             if (mm_mirror_entry(ctx, src, dst, de->d_name) != 0) {
@@ -124,9 +118,8 @@ static int mm_mirror_entry(MagicMount *ctx,
     return 0;
 }
 
-static int mm_apply_regular_file(MagicMount *ctx, const char *path,
-                                  const char *wpath, Node *node, bool has_tmpfs)
-{
+static int mm_apply_regular_file(MagicMount *ctx, const char *path, const char *wpath, Node *node,
+                                 bool has_tmpfs) {
     const char *target = has_tmpfs ? wpath : path;
 
     if (has_tmpfs) {
@@ -169,9 +162,7 @@ static int mm_apply_regular_file(MagicMount *ctx, const char *path,
     return 0;
 }
 
-static int mm_apply_symlink(MagicMount *ctx, const char *path,
-                            const char *wpath, Node *node)
-{
+static int mm_apply_symlink(MagicMount *ctx, const char *path, const char *wpath, Node *node) {
     if (!node->module_path) {
         LOGE("no module symlink for %s", path);
         errno = EINVAL;
@@ -185,8 +176,7 @@ static int mm_apply_symlink(MagicMount *ctx, const char *path,
     return 0;
 }
 
-static bool mm_check_need_tmpfs(Node *node, const char *path)
-{
+static bool mm_check_need_tmpfs(Node *node, const char *path) {
     for (size_t i = 0; i < node->child_count; ++i) {
         Node *c = node->children[i];
         char rp[PATH_MAX];
@@ -194,8 +184,7 @@ static bool mm_check_need_tmpfs(Node *node, const char *path)
         if (path_join(path, c->name, rp, sizeof(rp)) != 0)
             continue;
 
-        LOGD("checking child: parent=%s, child=%s, joined_path=%s",
-             path, c->name, rp);
+        LOGD("checking child: parent=%s, child=%s, joined_path=%s", path, c->name, rp);
 
         bool need = false;
 
@@ -204,30 +193,29 @@ static bool mm_check_need_tmpfs(Node *node, const char *path)
             LOGD("child %s is SYMLINK", c->name);
         } else if (c->type == NFT_WHITEOUT) {
             need = path_exists(rp);
-            LOGD("child %s is WHITEOUT, path_exists=%d, need=%d",
-                 c->name, need, need);
+            LOGD("child %s is WHITEOUT, path_exists=%d, need=%d", c->name, need, need);
         } else {
             struct stat st;
             if (lstat(rp, &st) == 0) {
                 NodeFileType rt = node_type_from_stat(&st);
-                LOGD("type mismatch check: %s - expected=%d, actual=%d, is_symlink=%d",
-                     rp, c->type, rt, rt == NFT_SYMLINK ? 1 : 0);
+                LOGD("type mismatch check: %s - expected=%d, actual=%d, is_symlink=%d", rp, c->type,
+                     rt, rt == NFT_SYMLINK ? 1 : 0);
                 if (rt != c->type || rt == NFT_SYMLINK)
                     need = true;
             } else {
-                LOGD("lstat failed for %s: %s (errno=%d), path_exists=%d",
-                     rp, strerror(errno), errno, path_exists(rp) ? 1 : 0);
+                LOGD("lstat failed for %s: %s (errno=%d), path_exists=%d", rp, strerror(errno),
+                     errno, path_exists(rp) ? 1 : 0);
                 need = true;
             }
         }
 
-        LOGD("child check: parent=%s, child=%s, type=%d, need=%d, has_module_path=%d",
-             path, c->name, c->type, need, node->module_path ? 1 : 0);
+        LOGD("child check: parent=%s, child=%s, type=%d, need=%d, has_module_path=%d", path,
+             c->name, c->type, need, node->module_path ? 1 : 0);
 
         if (need) {
             if (!node->module_path) {
-                LOGE("cannot create tmpfs on %s (%s) - child type: %d, target exists: %d",
-                     path, c->name, c->type, path_exists(rp) ? 1 : 0);
+                LOGE("cannot create tmpfs on %s (%s) - child type: %d, target exists: %d", path,
+                     c->name, c->type, path_exists(rp) ? 1 : 0);
                 c->skip = true;
                 continue;
             }
@@ -237,8 +225,7 @@ static bool mm_check_need_tmpfs(Node *node, const char *path)
     return false;
 }
 
-static int mm_setup_dir_tmpfs(const char *path, const char *wpath, Node *node)
-{
+static int mm_setup_dir_tmpfs(const char *path, const char *wpath, Node *node) {
     if (mkdir_p(wpath) != 0)
         return -1;
 
@@ -262,9 +249,8 @@ static int mm_setup_dir_tmpfs(const char *path, const char *wpath, Node *node)
     return 0;
 }
 
-static int mm_process_dir_children(MagicMount *ctx, const char *path,
-                                   const char *wpath, Node *node, bool now_tmp)
-{
+static int mm_process_dir_children(MagicMount *ctx, const char *path, const char *wpath, Node *node,
+                                   bool now_tmp) {
     if (!path_exists(path) || node->replace)
         return 0;
 
@@ -301,12 +287,10 @@ static int mm_process_dir_children(MagicMount *ctx, const char *path,
                 mn = node->module_name;
 
             if (mn) {
-                LOGE("child %s/%s failed (module: %s)",
-                     path, c ? c->name : de->d_name, mn);
+                LOGE("child %s/%s failed (module: %s)", path, c ? c->name : de->d_name, mn);
                 module_mark_failed(ctx, mn);
             } else {
-                LOGE("child %s/%s failed (no module_name)",
-                     path, c ? c->name : de->d_name);
+                LOGE("child %s/%s failed (no module_name)", path, c ? c->name : de->d_name);
             }
 
             ctx->stats.nodes_fail++;
@@ -321,9 +305,8 @@ static int mm_process_dir_children(MagicMount *ctx, const char *path,
     return 0;
 }
 
-static int mm_process_remaining_children(MagicMount *ctx, const char *path,
-                                         const char *wpath, Node *node, bool now_tmp)
-{
+static int mm_process_remaining_children(MagicMount *ctx, const char *path, const char *wpath,
+                                         Node *node, bool now_tmp) {
     for (size_t i = 0; i < node->child_count; ++i) {
         Node *c = node->children[i];
         if (c->skip || c->done)
@@ -348,10 +331,8 @@ static int mm_process_remaining_children(MagicMount *ctx, const char *path,
     return 0;
 }
 
-static int mm_apply_node_recursive(MagicMount *ctx,
-                    const char *base, const char *wbase,
-                    Node *node, bool has_tmpfs)
-{
+static int mm_apply_node_recursive(MagicMount *ctx, const char *base, const char *wbase, Node *node,
+                                   bool has_tmpfs) {
     char path[PATH_MAX];
     char wpath[PATH_MAX];
 
@@ -399,8 +380,7 @@ static int mm_apply_node_recursive(MagicMount *ctx,
             return -1;
 
         if (create_tmp) {
-            (void)mount(NULL, wpath, NULL,
-                        MS_REMOUNT | MS_BIND | MS_RDONLY, NULL);
+            (void)mount(NULL, wpath, NULL, MS_REMOUNT | MS_BIND | MS_RDONLY, NULL);
 
             if (mount(wpath, path, NULL, MS_MOVE, NULL) < 0) {
                 LOGE("move %s->%s failed: %s", wpath, path, strerror(errno));
@@ -424,8 +404,7 @@ static int mm_apply_node_recursive(MagicMount *ctx,
     return 0;
 }
 
-int magic_mount(MagicMount *ctx, const char *tmp_root)
-{
+int magic_mount(MagicMount *ctx, const char *tmp_root) {
     if (!ctx)
         return -1;
 
@@ -446,8 +425,7 @@ int magic_mount(MagicMount *ctx, const char *tmp_root)
         return -1;
     }
 
-    LOGI("starting magic_mount core logic: tmpfs_source=%s tmp_dir=%s",
-         ctx->mount_source, tmp_dir);
+    LOGI("starting magic_mount core logic: tmpfs_source=%s tmp_dir=%s", ctx->mount_source, tmp_dir);
 
     if (mount(ctx->mount_source, tmp_dir, "tmpfs", 0, "") < 0) {
         LOGE("mount tmpfs %s: %s", tmp_dir, strerror(errno));

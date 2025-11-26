@@ -1,17 +1,17 @@
 #include "utils.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/xattr.h>
-#include <sys/statfs.h>
+#include <ctype.h>
 #include <dirent.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
+#include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <stdlib.h>
-#include <ctype.h>
+#include <sys/stat.h>
+#include <sys/statfs.h>
+#include <sys/types.h>
+#include <sys/xattr.h>
+#include <unistd.h>
 
 /* --- log func --- */
 
@@ -24,30 +24,31 @@ struct log_entry {
     char *line;
 };
 
-static struct log_entry *g_log_buf   = NULL;
-static size_t            g_log_count = 0;
-static size_t            g_log_cap   = 0;
+static struct log_entry *g_log_buf = NULL;
+static size_t g_log_count = 0;
+static size_t g_log_cap = 0;
 
-static const char *log_level_str(log_level_t lv)
-{
+static const char *log_level_str(log_level_t lv) {
     switch (lv) {
-        case LOG_ERROR: return "ERROR";
-        case LOG_WARN:  return "WARN";
-        case LOG_INFO:  return "INFO";
-        case LOG_DEBUG: return "DEBUG";
+    case LOG_ERROR:
+        return "ERROR";
+    case LOG_WARN:
+        return "WARN";
+    case LOG_INFO:
+        return "INFO";
+    case LOG_DEBUG:
+        return "DEBUG";
     }
     return "?";
 }
 
-static void log_buffer_append(const char *line)
-{
+static void log_buffer_append(const char *line) {
     if (!line)
         return;
 
     if (g_log_count == g_log_cap) {
         size_t new_cap = g_log_cap ? g_log_cap * 2 : 16;
-        struct log_entry *new_buf =
-            realloc(g_log_buf, new_cap * sizeof(*new_buf));
+        struct log_entry *new_buf = realloc(g_log_buf, new_cap * sizeof(*new_buf));
         if (!new_buf) {
             fprintf(stderr, "%s\n", line);
             return;
@@ -64,8 +65,7 @@ static void log_buffer_append(const char *line)
     g_log_count++;
 }
 
-static void log_flush_buffer(FILE *out)
-{
+static void log_flush_buffer(FILE *out) {
     if (!out)
         out = stderr;
 
@@ -78,15 +78,14 @@ static void log_flush_buffer(FILE *out)
     }
 
     free(g_log_buf);
-    g_log_buf   = NULL;
+    g_log_buf = NULL;
     g_log_count = 0;
-    g_log_cap   = 0;
+    g_log_cap = 0;
 
     fflush(out);
 }
 
-void log_set_file(FILE *fp)
-{
+void log_set_file(FILE *fp) {
     g_log_file = fp;
 
     FILE *out = g_log_file ? g_log_file : stderr;
@@ -99,21 +98,14 @@ void log_set_file(FILE *fp)
     }
 }
 
-void log_set_level(log_level_t lv)
-{
-    g_log_level = lv;
-}
+void log_set_level(log_level_t lv) { g_log_level = lv; }
 
-void log_write(log_level_t lv, const char *file, int line,
-               const char *fmt, ...)
-{
+void log_write(log_level_t lv, const char *file, int line, const char *fmt, ...) {
     (void)lv;
 
     char buf[1024];
 
-    int off = snprintf(buf, sizeof(buf),
-                       "[%s] %s:%d: ",
-                       log_level_str(lv), file, line);
+    int off = snprintf(buf, sizeof(buf), "[%s] %s:%d: ", log_level_str(lv), file, line);
     if (off < 0)
         return;
     if ((size_t)off >= sizeof(buf))
@@ -143,8 +135,7 @@ void log_write(log_level_t lv, const char *file, int line,
 
 /* --- path helpers --- */
 
-int path_join(const char *base, const char *name, char *buf, size_t n)
-{
+int path_join(const char *base, const char *name, char *buf, size_t n) {
     if (!base || !buf || n == 0) {
         errno = EINVAL;
         return -1;
@@ -182,26 +173,22 @@ int path_join(const char *base, const char *name, char *buf, size_t n)
     return 0;
 }
 
-bool path_exists(const char *p)
-{
+bool path_exists(const char *p) {
     struct stat st;
     return (stat(p, &st) == 0);
 }
 
-bool path_is_dir(const char *p)
-{
+bool path_is_dir(const char *p) {
     struct stat st;
     return (stat(p, &st) == 0) && S_ISDIR(st.st_mode);
 }
 
-bool path_is_symlink(const char *p)
-{
+bool path_is_symlink(const char *p) {
     struct stat st;
     return (lstat(p, &st) == 0) && S_ISLNK(st.st_mode);
 }
 
-int mkdir_p(const char *dir)
-{
+int mkdir_p(const char *dir) {
     if (!dir || !dir[0]) {
         errno = EINVAL;
         return -1;
@@ -236,11 +223,9 @@ int mkdir_p(const char *dir)
     return -1;
 }
 
-
 /* --- tmpfs check and tempdir set --- */
 
-static bool is_rw_tmpfs(const char *path)
-{
+static bool is_rw_tmpfs(const char *path) {
     if (!path_is_dir(path))
         return false;
 
@@ -264,8 +249,7 @@ static bool is_rw_tmpfs(const char *path)
     return true;
 }
 
-const char *select_auto_tempdir(char buf[PATH_MAX])
-{
+const char *select_auto_tempdir(char buf[PATH_MAX]) {
     const char *candidates[] = {
         "/mnt/vendor",
         "/mnt",
@@ -291,8 +275,7 @@ const char *select_auto_tempdir(char buf[PATH_MAX])
 
 /* --- str utils --- */
 
-char *str_trim(char *str)
-{
+char *str_trim(char *str) {
     if (!str)
         return NULL;
 
@@ -319,20 +302,15 @@ char *str_trim(char *str)
     return str;
 }
 
-
-bool str_is_true(const char *str)
-{
+bool str_is_true(const char *str) {
     if (!str)
         return false;
 
-    return !strcasecmp(str, "true") ||
-           !strcasecmp(str, "yes") ||
-           !strcasecmp(str, "1") ||
+    return !strcasecmp(str, "true") || !strcasecmp(str, "yes") || !strcasecmp(str, "1") ||
            !strcasecmp(str, "on");
 }
 
-bool str_array_append(char ***arr, int *count, const char *str)
-{
+bool str_array_append(char ***arr, int *count, const char *str) {
     if (!arr || !count || !str) {
         errno = EINVAL;
         return false;
@@ -358,8 +336,7 @@ bool str_array_append(char ***arr, int *count, const char *str)
     return true;
 }
 
-void str_array_free(char ***arr, int *count)
-{
+void str_array_free(char ***arr, int *count) {
     if (!arr || !*arr || !count)
         return;
 
@@ -373,8 +350,7 @@ void str_array_free(char ***arr, int *count)
 
 /* --- SELinux xattr --- */
 
-int set_selcon(const char *path, const char *con)
-{
+int set_selcon(const char *path, const char *con) {
     if (!path || !con) {
         LOGD("set_selcon: skip null args");
         return 0;
@@ -390,10 +366,9 @@ int set_selcon(const char *path, const char *con)
     return 0;
 }
 
-int get_selcon(const char *path, char **out)
-{
+int get_selcon(const char *path, char **out) {
     *out = NULL;
-    
+
     if (!path) {
         LOGD("get_selcon: null path");
         errno = EINVAL;
@@ -418,7 +393,7 @@ int get_selcon(const char *path, char **out)
         free(buf);
         return -1;
     }
-    
+
     buf[sz] = '\0';
     *out = buf;
 
@@ -426,8 +401,7 @@ int get_selcon(const char *path, char **out)
     return 0;
 }
 
-int copy_selcon(const char *src, const char *dst)
-{
+int copy_selcon(const char *src, const char *dst) {
     if (!src || !dst) {
         LOGD("copy_selcon: skip null args");
         errno = EINVAL;
@@ -447,9 +421,8 @@ int copy_selcon(const char *src, const char *dst)
 }
 
 /* --- Permission check --- */
- 
-int root_check(void)
-{
+
+int root_check(void) {
     /* Check root privileges */
     if (geteuid() != 0) {
         LOGE("Must run as root (current euid=%d)", (int)geteuid());

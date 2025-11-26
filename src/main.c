@@ -2,18 +2,18 @@
 #include "module_tree.h"
 #include "utils.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <fcntl.h>
-#include <unistd.h>
+#include <ctype.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <strings.h>
-#include <ctype.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
 
 #define DEFAULT_CONFIG_PATH "/data/adb/magic_mount/mm.conf"
 
@@ -37,8 +37,7 @@ static void print_summary(const MagicMount *ctx);
 static void cleanup_resources(MagicMount *ctx);
 
 /* --- Helper function implementations --- */
-static void usage(const char *prog)
-{
+static void usage(const char *prog) {
     fprintf(stderr,
             "Magic Mount: %s\n"
             "\n"
@@ -55,12 +54,10 @@ static void usage(const char *prog)
             "      --no_umount           Disable umount\n"
             "  -h, --help                Show this help message\n"
             "\n",
-            VERSION, prog, DEFAULT_MODULE_DIR, DEFAULT_MOUNT_SOURCE,
-            DEFAULT_CONFIG_PATH);
+            VERSION, prog, DEFAULT_MODULE_DIR, DEFAULT_MOUNT_SOURCE, DEFAULT_CONFIG_PATH);
 }
 
-static int load_config_file(const char *path, Config *cfg, MagicMount *ctx)
-{
+static int load_config_file(const char *path, Config *cfg, MagicMount *ctx) {
     FILE *fp = fopen(path, "r");
     if (!fp) {
         if (errno != ENOENT) {
@@ -126,8 +123,7 @@ static int load_config_file(const char *path, Config *cfg, MagicMount *ctx)
     return 0;
 }
 
-static int parse_partitions(const char *list, MagicMount *ctx)
-{
+static int parse_partitions(const char *list, MagicMount *ctx) {
     if (!list || !*list)
         return 0;
 
@@ -156,8 +152,7 @@ static int parse_partitions(const char *list, MagicMount *ctx)
     return 0;
 }
 
-static int setup_logging(const char *log_path)
-{
+static int setup_logging(const char *log_path) {
     if (!log_path)
         return 0;
 
@@ -168,8 +163,7 @@ static int setup_logging(const char *log_path)
     } else {
         fp = fopen(log_path, "a");
         if (!fp) {
-            fprintf(stderr, "Error: Cannot open log file %s: %s\n",
-                    log_path, strerror(errno));
+            fprintf(stderr, "Error: Cannot open log file %s: %s\n", log_path, strerror(errno));
             return -1;
         }
         /* Ensure log is line-buffered */
@@ -180,8 +174,7 @@ static int setup_logging(const char *log_path)
     return 0;
 }
 
-static void print_summary(const MagicMount *ctx)
-{
+static void print_summary(const MagicMount *ctx) {
     LOGI("Summary");
     LOGI("Modules processed:     %d", ctx->stats.modules_total);
     LOGI("Nodes total:           %d", ctx->stats.nodes_total);
@@ -200,8 +193,7 @@ static void print_summary(const MagicMount *ctx)
     }
 }
 
-static void cleanup_resources(MagicMount *ctx)
-{
+static void cleanup_resources(MagicMount *ctx) {
     if (!ctx)
         return;
 
@@ -214,17 +206,16 @@ static void cleanup_resources(MagicMount *ctx)
 }
 
 /* --- Main function --- */
-int main(int argc, char **argv)
-{
+int main(int argc, char **argv) {
     MagicMount ctx;
     Config cfg = {0};
     cfg.umount = true;
     char auto_tmp[PATH_MAX] = {0};
 
-    const char *config_path  = DEFAULT_CONFIG_PATH;
-    const char *tmp_dir      = NULL;
+    const char *config_path = DEFAULT_CONFIG_PATH;
+    const char *tmp_dir = NULL;
     const char *cli_log_path = NULL;
-    bool cli_has_partitions  = false;
+    bool cli_has_partitions = false;
     int rc;
 
     magic_mount_init(&ctx);
@@ -234,8 +225,7 @@ int main(int argc, char **argv)
 
         if ((!strcmp(arg, "-c") || !strcmp(arg, "--config")) && i + 1 < argc) {
             config_path = argv[++i];
-        }
-        else if ((!strcmp(arg, "-l") || !strcmp(arg, "--log-file")) && i + 1 < argc) {
+        } else if ((!strcmp(arg, "-l") || !strcmp(arg, "--log-file")) && i + 1 < argc) {
             cli_log_path = argv[++i];
         }
     }
@@ -265,12 +255,17 @@ int main(int argc, char **argv)
     else
         ctx.enable_unmountable = false;
 
-
     for (int i = 1; i < argc; i++) {
         const char *arg = argv[i];
 
-        if ((!strcmp(arg, "-c") || !strcmp(arg, "--config")) && i + 1 < argc) { i++; continue; }
-        if ((!strcmp(arg, "-l") || !strcmp(arg, "--log-file")) && i + 1 < argc) { i++; continue; }
+        if ((!strcmp(arg, "-c") || !strcmp(arg, "--config")) && i + 1 < argc) {
+            i++;
+            continue;
+        }
+        if ((!strcmp(arg, "-l") || !strcmp(arg, "--log-file")) && i + 1 < argc) {
+            i++;
+            continue;
+        }
 
         if ((!strcmp(arg, "-m") || !strcmp(arg, "--module-dir")) && i + 1 < argc) {
             ctx.module_dir = argv[++i];

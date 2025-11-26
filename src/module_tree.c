@@ -2,32 +2,32 @@
 #include "magic_mount.h"
 #include "utils.h"
 
-#include <sys/types.h>
-#include <sys/stat.h>
-#include <sys/xattr.h>
 #include <dirent.h>
-#include <fcntl.h>
-#include <unistd.h>
 #include <errno.h>
+#include <fcntl.h>
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/xattr.h>
+#include <unistd.h>
 
 /* --- Node basic mgr --- */
 
-static Node *node_new(const char *name, NodeFileType t)
-{
+static Node *node_new(const char *name, NodeFileType t) {
     Node *n = calloc(1, sizeof(Node));
-    if (!n) return NULL;
+    if (!n)
+        return NULL;
 
     n->name = strdup(name ? name : "");
     n->type = t;
     return n;
 }
 
-void node_free(Node *n)
-{
-    if (!n) return;
+void node_free(Node *n) {
+    if (!n)
+        return;
 
     for (size_t i = 0; i < n->child_count; ++i)
         node_free(n->children[i]);
@@ -39,47 +39,48 @@ void node_free(Node *n)
     free(n);
 }
 
-NodeFileType node_type_from_stat(const struct stat *st)
-{
+NodeFileType node_type_from_stat(const struct stat *st) {
     if (S_ISCHR(st->st_mode) && st->st_rdev == 0)
         return NFT_WHITEOUT;
-    if (S_ISREG(st->st_mode)) return NFT_REGULAR;
-    if (S_ISDIR(st->st_mode)) return NFT_DIRECTORY;
-    if (S_ISLNK(st->st_mode)) return NFT_SYMLINK;
+    if (S_ISREG(st->st_mode))
+        return NFT_REGULAR;
+    if (S_ISDIR(st->st_mode))
+        return NFT_DIRECTORY;
+    if (S_ISLNK(st->st_mode))
+        return NFT_SYMLINK;
     return NFT_WHITEOUT;
 }
 
-static bool dir_is_replace(const char *path)
-{
+static bool dir_is_replace(const char *path) {
     char buf[8];
     ssize_t len = lgetxattr(path, REPLACE_DIR_XATTR, buf, sizeof(buf) - 1);
 
     if (len > 0) {
         buf[len] = '\0';
-        if (strcmp(buf, "y") == 0) return true;
+        if (strcmp(buf, "y") == 0)
+            return true;
     }
 
     int dirfd = open(path, O_RDONLY | O_DIRECTORY);
-    if (dirfd < 0) return false;
+    if (dirfd < 0)
+        return false;
 
     bool exists = (faccessat(dirfd, REPLACE_DIR_FILE_NAME, F_OK, 0) == 0);
     close(dirfd);
     return exists;
 }
 
-static Node *node_create_from_fs(MagicMount *ctx, const char *name, 
-                             const char *path, const char *module_name)
-{
+static Node *node_create_from_fs(MagicMount *ctx, const char *name, const char *path,
+                                 const char *module_name) {
     struct stat st;
     if (lstat(path, &st) < 0) {
         LOGD("node_create_from_fs: lstat(%s) failed: %s", path, strerror(errno));
         return NULL;
     }
 
-    if (!(S_ISCHR(st.st_mode) || S_ISREG(st.st_mode) ||
-          S_ISDIR(st.st_mode) || S_ISLNK(st.st_mode))) {
-        LOGD("node_create_from_fs: skip unsupported file type for %s (mode=%o)",
-             path, st.st_mode);
+    if (!(S_ISCHR(st.st_mode) || S_ISREG(st.st_mode) || S_ISDIR(st.st_mode) ||
+          S_ISLNK(st.st_mode))) {
+        LOGD("node_create_from_fs: skip unsupported file type for %s (mode=%o)", path, st.st_mode);
         return NULL;
     }
 
@@ -95,31 +96,27 @@ static Node *node_create_from_fs(MagicMount *ctx, const char *name,
         n->module_name = strdup(module_name);
     n->replace = (t == NFT_DIRECTORY) && dir_is_replace(path);
 
-    LOGD("node_create_from_fs: created node '%s' (type=%d, replace=%d, module=%s, path=%s)",
-         name, t, n->replace, module_name ? module_name : "(none)", path);
+    LOGD("node_create_from_fs: created node '%s' (type=%d, replace=%d, module=%s, path=%s)", name,
+         t, n->replace, module_name ? module_name : "(none)", path);
 
     ctx->stats.nodes_total++;
     return n;
 }
 
-static int node_child_append(Node *parent, Node *child)
-{
+static int node_child_append(Node *parent, Node *child) {
     if (!parent || !child) {
         LOGE("node_child_append: parent or child is NULL");
         errno = EINVAL;
         return -1;
     }
 
-    LOGD("node_child_append: parent='%s' add child='%s'",
-         parent->name ? parent->name : "(root)",
+    LOGD("node_child_append: parent='%s' add child='%s'", parent->name ? parent->name : "(root)",
          child->name ? child->name : "(null)");
 
-    Node **arr = realloc(parent->children,
-                         (parent->child_count + 1) * sizeof(Node *));
+    Node **arr = realloc(parent->children, (parent->child_count + 1) * sizeof(Node *));
     if (!arr) {
         LOGE("node_child_append: realloc failed (parent='%s', child='%s')",
-             parent->name ? parent->name : "(root)",
-             child->name ? child->name : "(null)");
+             parent->name ? parent->name : "(root)", child->name ? child->name : "(null)");
         errno = ENOMEM;
         return -1;
     }
@@ -129,8 +126,7 @@ static int node_child_append(Node *parent, Node *child)
     return 0;
 }
 
-Node *node_child_find(Node *parent, const char *name)
-{
+Node *node_child_find(Node *parent, const char *name) {
     for (size_t i = 0; i < parent->child_count; ++i) {
         if (strcmp(parent->children[i]->name, name) == 0)
             return parent->children[i];
@@ -138,8 +134,7 @@ Node *node_child_find(Node *parent, const char *name)
     return NULL;
 }
 
-static Node *node_child_detach(Node *parent, const char *name)
-{
+static Node *node_child_detach(Node *parent, const char *name) {
     for (size_t i = 0; i < parent->child_count; ++i) {
         if (strcmp(parent->children[i]->name, name) == 0) {
             Node *n = parent->children[i];
@@ -152,9 +147,9 @@ static Node *node_child_detach(Node *parent, const char *name)
     return NULL;
 }
 
-void module_mark_failed(MagicMount *ctx, const char *module_name)
-{
-    if (!ctx || !module_name) return;
+void module_mark_failed(MagicMount *ctx, const char *module_name) {
+    if (!ctx || !module_name)
+        return;
 
     // Check for duplicates
     for (int i = 0; i < ctx->failed_modules_count; ++i) {
@@ -162,17 +157,14 @@ void module_mark_failed(MagicMount *ctx, const char *module_name)
             return;
     }
 
-    if (!str_array_append(&ctx->failed_modules,
-                          &ctx->failed_modules_count,
-                          module_name)) {
+    if (!str_array_append(&ctx->failed_modules, &ctx->failed_modules_count, module_name)) {
         LOGW("failed to record module failure for %s (OOM)", module_name);
     }
 }
 
 /* --- Extra partition blacklist --- */
 
-static bool extra_part_blacklisted(const char *name)
-{
+static bool extra_part_blacklisted(const char *name) {
     if (!name || !*name)
         return false;
 
@@ -187,11 +179,9 @@ static bool extra_part_blacklisted(const char *name)
     }
     buf[i] = '\0';
 
-    static const char *blacklist[] = { 
-        "bin", "etc", "data", "data_mirror", "sdcard", 
-        "tmp", "dev", "sys", "mnt", "proc", "d", "test",
-        "product", "vendor", "system_ext", "odm"
-    };
+    static const char *blacklist[] = {
+        "bin", "etc",  "data", "data_mirror", "sdcard",  "tmp",    "dev",        "sys",
+        "mnt", "proc", "d",    "test",        "product", "vendor", "system_ext", "odm"};
     size_t n = sizeof(blacklist) / sizeof(blacklist[0]);
 
     for (size_t j = 0; j < n; ++j) {
@@ -201,16 +191,14 @@ static bool extra_part_blacklisted(const char *name)
     return false;
 }
 
-void extra_partition_register(MagicMount *ctx, const char *start, size_t len)
-{
+void extra_partition_register(MagicMount *ctx, const char *start, size_t len) {
     if (!ctx) {
         LOGE("extra_partition_register: NULL context");
         return;
     }
-    
+
     if (!start || len == 0) {
-        LOGW("extra_partition_register: invalid input (start=%p, len=%zu)", 
-             (void*)start, len);
+        LOGW("extra_partition_register: invalid input (start=%p, len=%zu)", (void *)start, len);
         return;
     }
 
@@ -228,10 +216,10 @@ void extra_partition_register(MagicMount *ctx, const char *start, size_t len)
     size_t original_len = strlen(buf);
     str_trim(buf);
     size_t trimmed_len = strlen(buf);
-    
+
     if (original_len != trimmed_len) {
-        LOGD("extra_partition_register: trimmed whitespace (%zu -> %zu bytes)", 
-             original_len, trimmed_len);
+        LOGD("extra_partition_register: trimmed whitespace (%zu -> %zu bytes)", original_len,
+             trimmed_len);
     }
 
     if (buf[0] == '\0') {
@@ -246,33 +234,25 @@ void extra_partition_register(MagicMount *ctx, const char *start, size_t len)
         return;
     }
 
-    if (!str_array_append(&ctx->extra_parts,
-                          &ctx->extra_parts_count,
-                          buf)) {
-        LOGE("extra_partition_register: failed to add '%s' (OOM or array error, count=%d)", 
-             buf, ctx->extra_parts_count);
+    if (!str_array_append(&ctx->extra_parts, &ctx->extra_parts_count, buf)) {
+        LOGE("extra_partition_register: failed to add '%s' (OOM or array error, count=%d)", buf,
+             ctx->extra_parts_count);
         free(buf);
         return;
     }
 
-    LOGI("extra_partition_register: success added '%s' (total: %d partitions)", 
-         buf, ctx->extra_parts_count);
+    LOGI("extra_partition_register: success added '%s' (total: %d partitions)", buf,
+         ctx->extra_parts_count);
 
     free(buf);
 }
 
-static bool module_is_disabled(const char *mod_dir)
-{
+static bool module_is_disabled(const char *mod_dir) {
     char buf[PATH_MAX];
-    const char *disable_files[] = {
-        DISABLE_FILE_NAME,
-        REMOVE_FILE_NAME,
-        SKIP_MOUNT_FILE_NAME
-    };
+    const char *disable_files[] = {DISABLE_FILE_NAME, REMOVE_FILE_NAME, SKIP_MOUNT_FILE_NAME};
 
     for (size_t i = 0; i < sizeof(disable_files) / sizeof(disable_files[0]); ++i) {
-        if (path_join(mod_dir, disable_files[i], buf, sizeof(buf)) == 0 &&
-            path_exists(buf))
+        if (path_join(mod_dir, disable_files[i], buf, sizeof(buf)) == 0 && path_exists(buf))
             return true;
     }
     return false;
@@ -280,12 +260,10 @@ static bool module_is_disabled(const char *mod_dir)
 
 /* --- Node collect --- */
 
-static int node_scan_dir(MagicMount *ctx, Node *self, const char *dir,
-                        const char *module_name, bool *has_any)
-{
-    LOGD("node_scan_dir: enter dir=%s module=%s node='%s'",
-         dir, module_name ? module_name : "(none)",
-         self && self->name ? self->name : "(null)");
+static int node_scan_dir(MagicMount *ctx, Node *self, const char *dir, const char *module_name,
+                         bool *has_any) {
+    LOGD("node_scan_dir: enter dir=%s module=%s node='%s'", dir,
+         module_name ? module_name : "(none)", self && self->name ? self->name : "(null)");
 
     DIR *d = opendir(dir);
     if (!d) {
@@ -302,8 +280,7 @@ static int node_scan_dir(MagicMount *ctx, Node *self, const char *dir,
             continue;
 
         if (path_join(dir, de->d_name, path, sizeof(path)) != 0) {
-            LOGE("node_scan_dir: path_join failed for dir=%s name=%s",
-                 dir, de->d_name);
+            LOGE("node_scan_dir: path_join failed for dir=%s name=%s", dir, de->d_name);
             closedir(d);
             return -1;
         }
@@ -316,8 +293,7 @@ static int node_scan_dir(MagicMount *ctx, Node *self, const char *dir,
             if (n && node_child_append(self, n) == 0) {
                 child = n;
             } else if (n) {
-                LOGE("node_scan_dir: failed to add child '%s' to '%s'",
-                     de->d_name,
+                LOGE("node_scan_dir: failed to add child '%s' to '%s'", de->d_name,
                      self && self->name ? self->name : "(null)");
                 node_free(n);
             } else {
@@ -339,8 +315,8 @@ static int node_scan_dir(MagicMount *ctx, Node *self, const char *dir,
                     any = true;
                 }
             } else {
-                LOGD("node_scan_dir: file node '%s' has content (type=%d)",
-                     child->name, child->type);
+                LOGD("node_scan_dir: file node '%s' has content (type=%d)", child->name,
+                     child->type);
                 any = true;
             }
         } else {
@@ -357,14 +333,14 @@ static int node_scan_dir(MagicMount *ctx, Node *self, const char *dir,
 /* --- Symlink compatibility --- */
 
 static bool is_compatible_symlink(const char *link_target, const char *part_name,
-                                  const MagicMount *ctx, const char *module_name)
-{
+                                  const MagicMount *ctx, const char *module_name) {
     // Remove trailing slashes
     size_t target_len = strlen(link_target);
     while (target_len > 0 && link_target[target_len - 1] == '/') {
         target_len--;
     }
-    if (target_len == 0) return false;
+    if (target_len == 0)
+        return false;
 
     // Check relative: ../part_name
     char expected_relative[PATH_MAX];
@@ -389,9 +365,8 @@ static bool is_compatible_symlink(const char *link_target, const char *part_name
     return false;
 }
 
-static int find_real_partition_dir(MagicMount *ctx, const char *part_name,
-                                   char *out_path, char *out_module, size_t buf_size)
-{
+static int find_real_partition_dir(MagicMount *ctx, const char *part_name, char *out_path,
+                                   char *out_module, size_t buf_size) {
     DIR *mod_dir = opendir(ctx->module_dir);
     if (!mod_dir) {
         LOGE("opendir %s: %s", ctx->module_dir, strerror(errno));
@@ -434,9 +409,9 @@ static int find_real_partition_dir(MagicMount *ctx, const char *part_name,
     return result;
 }
 
-static int symlink_resolve_partition(MagicMount *ctx, Node *system, const char *part_name)
-{
-    if (!system || !part_name) return -1;
+static int symlink_resolve_partition(MagicMount *ctx, Node *system, const char *part_name) {
+    if (!system || !part_name)
+        return -1;
 
     Node *sys_child = node_child_find(system, part_name);
     if (!sys_child || sys_child->type != NFT_SYMLINK || !sys_child->module_path)
@@ -458,14 +433,14 @@ static int symlink_resolve_partition(MagicMount *ctx, Node *system, const char *
     LOGI("found compatible symlink: system/%s -> %s", part_name, link_target);
 
     char real_part_path[PATH_MAX], module_name_buf[256];
-    if (find_real_partition_dir(ctx, part_name, real_part_path, 
-                                module_name_buf, sizeof(module_name_buf)) != 0) {
+    if (find_real_partition_dir(ctx, part_name, real_part_path, module_name_buf,
+                                sizeof(module_name_buf)) != 0) {
         LOGD("no real directory found for %s, keeping symlink", part_name);
         return 0;
     }
 
-    LOGI("symlink compatibility: system/%s -> %s, real dir in module '%s'",
-         part_name, link_target, module_name_buf);
+    LOGI("symlink compatibility: system/%s -> %s, real dir in module '%s'", part_name, link_target,
+         module_name_buf);
 
     Node *new_part = node_new(part_name, NFT_DIRECTORY);
     if (!new_part) {
@@ -500,17 +475,16 @@ static int symlink_resolve_partition(MagicMount *ctx, Node *system, const char *
         return -1;
     }
 
-    LOGI("replaced symlink with directory node: %s (from module '%s')",
-         part_name, module_name_buf);
+    LOGI("replaced symlink with directory node: %s (from module '%s')", part_name, module_name_buf);
 
     return 0;
 }
 
-static int symlink_resolve_all_partition_links(MagicMount *ctx, Node *system)
-{
-    if (!system) return -1;
+static int symlink_resolve_all_partition_links(MagicMount *ctx, Node *system) {
+    if (!system)
+        return -1;
 
-    const char *builtin_parts[] = { "vendor", "system_ext", "product", "odm" };
+    const char *builtin_parts[] = {"vendor", "system_ext", "product", "odm"};
 
     for (size_t i = 0; i < sizeof(builtin_parts) / sizeof(builtin_parts[0]); ++i) {
         if (symlink_resolve_partition(ctx, system, builtin_parts[i]) != 0) {
@@ -520,8 +494,7 @@ static int symlink_resolve_all_partition_links(MagicMount *ctx, Node *system)
 
     for (int i = 0; i < ctx->extra_parts_count; ++i) {
         if (symlink_resolve_partition(ctx, system, ctx->extra_parts[i]) != 0) {
-            LOGE("failed to handle symlink compatibility for extra part %s",
-                 ctx->extra_parts[i]);
+            LOGE("failed to handle symlink compatibility for extra part %s", ctx->extra_parts[i]);
         }
     }
 
@@ -530,12 +503,10 @@ static int symlink_resolve_all_partition_links(MagicMount *ctx, Node *system)
 
 /* --- Extra partition collect --- */
 
-static int partition_scan_from_modules(MagicMount *ctx, const char *part_name, Node *parent_node)
-{
+static int partition_scan_from_modules(MagicMount *ctx, const char *part_name, Node *parent_node) {
     if (!part_name || !parent_node) {
         LOGE("partition_scan_from_modules: invalid args part=%s node=%p",
-             part_name ? part_name : "(null)",
-             (void *)parent_node);
+             part_name ? part_name : "(null)", (void *)parent_node);
         return -1;
     }
 
@@ -583,8 +554,8 @@ static int partition_scan_from_modules(MagicMount *ctx, const char *part_name, N
             continue;
         }
 
-        LOGD("partition_scan_from_modules: collecting part=%s from module=%s",
-             part_name, mod_de->d_name);
+        LOGD("partition_scan_from_modules: collecting part=%s from module=%s", part_name,
+             mod_de->d_name);
 
         bool sub = false;
         if (node_scan_dir(ctx, parent_node, part_path, mod_de->d_name, &sub) != 0) {
@@ -612,8 +583,7 @@ static int partition_scan_from_modules(MagicMount *ctx, const char *part_name, N
 /* --- Helper for partition promotion --- */
 
 static int partition_promote_to_root(Node *root, Node *system, const char *part_name,
-                                     bool need_symlink)
-{
+                                     bool need_symlink) {
     char rp[PATH_MAX], sp[PATH_MAX];
 
     LOGD("partition_promote_to_root: part=%s need_symlink=%d", part_name, need_symlink);
@@ -651,8 +621,7 @@ static int partition_promote_to_root(Node *root, Node *system, const char *part_
 
 /* --- Root collection --- */
 
-Node *build_mount_tree(MagicMount *ctx)
-{
+Node *build_mount_tree(MagicMount *ctx) {
     if (!ctx) {
         LOGE("build_mount_tree: ctx is NULL");
         return NULL;
@@ -760,24 +729,26 @@ Node *build_mount_tree(MagicMount *ctx)
         const char *name;
         bool need_symlink;
     } builtin_parts[] = {
-        { "vendor",     true  },
-        { "system_ext", true  },
-        { "product",    true  },
-        { "odm",        false },
+        {"vendor", true},
+        {"system_ext", true},
+        {"product", true},
+        {"odm", false},
     };
 
     for (size_t i = 0; i < sizeof(builtin_parts) / sizeof(builtin_parts[0]); ++i) {
         const char *part = builtin_parts[i].name;
-        
+
         LOGD("build_mount_tree: trying to promote builtin partition '%s' to /", part);
 
         if (partition_promote_to_root(root, system, part, builtin_parts[i].need_symlink) != 0) {
-            LOGE("build_mount_tree: partition_promote_to_root failed for builtin partition '%s'", part);
+            LOGE("build_mount_tree: partition_promote_to_root failed for builtin partition '%s'",
+                 part);
             node_free(root);
             node_free(system);
             return NULL;
         } else {
-            LOGD("build_mount_tree: partition_promote_to_root finished for builtin partition '%s'", part);
+            LOGD("build_mount_tree: partition_promote_to_root finished for builtin partition '%s'",
+                 part);
         }
     }
 
@@ -794,7 +765,8 @@ Node *build_mount_tree(MagicMount *ctx)
         }
 
         if (!path_is_dir(rp)) {
-            LOGD("build_mount_tree: extra partition '%s' skipped, real path '%s' is not a dir", name, rp);
+            LOGD("build_mount_tree: extra partition '%s' skipped, real path '%s' is not a dir",
+                 name, rp);
             continue;
         }
 
@@ -822,10 +794,12 @@ Node *build_mount_tree(MagicMount *ctx)
             }
             LOGD("build_mount_tree: extra partition '%s' attached to root", name);
         } else if (ret == 1) {
-            LOGD("build_mount_tree: no content found for extra partition '%s', dropping node", name);
+            LOGD("build_mount_tree: no content found for extra partition '%s', dropping node",
+                 name);
             node_free(child);
         } else {
-            LOGE("build_mount_tree: partition_scan_from_modules failed for extra partition '%s' (ret=%d)",
+            LOGE("build_mount_tree: partition_scan_from_modules failed for extra partition '%s' "
+                 "(ret=%d)",
                  name, ret);
             node_free(child);
             node_free(root);
@@ -846,9 +820,9 @@ Node *build_mount_tree(MagicMount *ctx)
     return root;
 }
 
-void module_tree_cleanup(MagicMount *ctx)
-{
-    if (!ctx) return;
+void module_tree_cleanup(MagicMount *ctx) {
+    if (!ctx)
+        return;
 
     str_array_free(&ctx->failed_modules, &ctx->failed_modules_count);
     str_array_free(&ctx->extra_parts, &ctx->extra_parts_count);
