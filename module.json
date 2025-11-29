@@ -1,6 +1,0 @@
-{
-    "metamodule": true,
-    "summary": "An implementation of a metamodule using Magic Mount for KernelSU",
-    "sourceUrl": "https://codeberg.org/ovo/meta-magic_mount",
-    "additionalAuthors": []
-}
